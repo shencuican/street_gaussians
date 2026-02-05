@@ -1,0 +1,1558 @@
+[33mcommit aa0ffb37adbcc56fdd85d0b9806969b148da1df6[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Author: shencuican <shencuican8@gmail.com>
+Date:   Thu Feb 5 21:21:33 2026 +0800
+
+    更新子模块版本以引入新的重建实现
+
+[1mdiff --git a/configs/custom/waymo_train_000_quick.yaml b/configs/custom/waymo_train_000_quick.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..57acccc[m
+[1m--- /dev/null[m
+[1m+++ b/configs/custom/waymo_train_000_quick.yaml[m
+[36m@@ -0,0 +1,77 @@[m
+[32m+[m[32mtask: waymo_full_exp[m
+[32m+[m[32msource_path: /data/shencc/waymo_processed/training/000[m
+[32m+[m[32mexp_name: waymo_train_000_quick[m
+[32m+[m
+[32m+[m[32mdata:[m
+[32m+[m[32m  split_test: -1[m
+[32m+[m[32m  split_train: 1[m
+[32m+[m[32m  type: Waymo[m
+[32m+[m[32m  white_background: false[m
+[32m+[m[32m  selected_frames: null[m
+[32m+[m[32m  cameras: [0, 1, 2][m
+[32m+[m[32m  extent: 10[m
+[32m+[m[32m  use_colmap: false[m
+[32m+[m[32m  filter_colmap: false[m
+[32m+[m
+[32m+[m[32mmodel:[m
+[32m+[m[32m  gaussian:[m
+[32m+[m[32m    sh_degree: 1[m
+[32m+[m[32m    fourier_dim: 5[m
+[32m+[m[32m    fourier_scale: 1.[m
+[32m+[m[32m    flip_prob: 0.5[m
+[32m+[m[32m  nsg:[m
+[32m+[m[32m    include_bkgd: true[m
+[32m+[m[32m    include_obj: true[m
+[32m+[m[32m    include_sky: false[m
+[32m+[m[32m    opt_track: true[m
+[32m+[m
+[32m+[m[32mtrain:[m
+[32m+[m[32m  iterations: 500[m
+[32m+[m[32m  test_iterations: [200, 500][m
+[32m+[m[32m  save_iterations: [500][m
+[32m+[m[32m  checkpoint_iterations: [500][m
+[32m+[m
+[32m+[m[32moptim:[m
+[32m+[m[32m  prune_box_interval: 100[m
+[32m+[m[32m  densification_interval: 100[m
+[32m+[m[32m  densify_from_iter: 500[m
+[32m+[m[32m  densify_grad_threshold_bkgd: 0.0006[m
+[32m+[m[32m  densify_grad_abs_bkgd: True[m
+[32m+[m[32m  densify_grad_threshold_obj: 0.0002[m
+[32m+[m[32m  densify_grad_abs_obj: False[m
+[32m+[m[32m  densify_grad_threshold: 0.0002[m
+[32m+[m[32m  densify_until_iter: 25000[m
+[32m+[m[32m  feature_lr: 0.0025[m
+[32m+[m[32m  max_screen_size: 20[m
+[32m+[m[32m  min_opacity: 0.005[m
+[32m+[m[32m  opacity_lr: 0.05[m
+[32m+[m[32m  opacity_reset_interval: 3000[m
+[32m+[m[32m  percent_big_ws: 0.1[m
+[32m+[m[32m  percent_dense: 0.01[m
+[32m+[m[32m  position_lr_delay_mult: 0.01[m
+[32m+[m[32m  position_lr_final: 1.6e-06[m
+[32m+[m[32m  position_lr_init: 0.00016[m
+[32m+[m[32m  position_lr_max_steps: 50000[m
+[32m+[m[32m  rotation_lr: 0.001[m
+[32m+[m[32m  scaling_lr: 0.005[m
+[32m+[m[32m  semantic_lr: 0.01[m
+[32m+[m
+[32m+[m[32m  lambda_dssim: 0.2[m
+[32m+[m[32m  lambda_sky: 0.0[m
+[32m+[m[32m  lambda_mask: 0.1[m
+[32m+[m[32m  lambda_reg: 0.1[m
+[32m+[m[32m  lambda_depth_lidar: 0.1[m
+[32m+[m
+[32m+[m[32m  track_position_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_position_lr_init: 0.005[m
+[32m+[m[32m  track_position_lr_final: 5.0e-5[m
+[32m+[m[32m  track_position_max_steps: 30000[m
+[32m+[m
+[32m+[m[32m  track_rotation_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_rotation_lr_init: 0.001[m
+[32m+[m[32m  track_rotation_lr_final: 1.0e-5[m
+[32m+[m[32m  track_rotation_max_steps: 30000[m
+[32m+[m
+[32m+[m[32mrender:[m
+[32m+[m[32m  fps: 24[m
+[32m+[m[32m  concat_cameras: [1, 0, 2][m
+[1mdiff --git a/lib/utils/waymo_utils.py b/lib/utils/waymo_utils.py[m
+[1mindex 5b6a474..9af7d9f 100644[m
+[1m--- a/lib/utils/waymo_utils.py[m
+[1m+++ b/lib/utils/waymo_utils.py[m
+[36m@@ -441,11 +441,13 @@[m [mdef generate_dataparser_outputs([m
+     #     x = x.astype(np.uint8) * 255[m
+     #     cv2.imwrite(f'obj_bounds/{i}.png', x)[m
+     [m
+[31m-    # run colmap[m
+[32m+[m[32m    # run colmap (optional)[m
+[32m+[m[32m    use_colmap = cfg.data.get('use_colmap', True)[m
+     colmap_basedir = os.path.join(f'{cfg.model_path}/colmap')[m
+[31m-    if not os.path.exists(os.path.join(colmap_basedir, 'triangulated/sparse/model')):[m
+[31m-        from script.waymo.colmap_waymo_full import run_colmap_waymo[m
+[31m-        run_colmap_waymo(result)[m
+[32m+[m[32m    if use_colmap:[m
+[32m+[m[32m        if not os.path.exists(os.path.join(colmap_basedir, 'triangulated/sparse/model')):[m
+[32m+[m[32m            from script.waymo.colmap_waymo_full import run_colmap_waymo[m
+[32m+[m[32m            run_colmap_waymo(result)[m
+     [m
+     if build_pointcloud:[m
+         print('build point cloud')[m
+[36m@@ -461,9 +463,17 @@[m [mdef generate_dataparser_outputs([m
+             points_rgb_dict[f'obj_{track_id:03d}'] = [][m
+ [m
+         print('initialize from sfm pointcloud')[m
+[31m-        points_colmap_path = os.path.join(colmap_basedir, 'triangulated/sparse/model/points3D.bin')[m
+[31m-        points_colmap_xyz, points_colmap_rgb, points_colmap_error = read_points3D_binary(points_colmap_path)[m
+[31m-        points_colmap_rgb = points_colmap_rgb / 255.[m
+[32m+[m[32m        points_colmap_xyz = np.zeros((0, 3), dtype=np.float32)[m
+[32m+[m[32m        points_colmap_rgb = np.zeros((0, 3), dtype=np.float32)[m
+[32m+[m[32m        if use_colmap:[m
+[32m+[m[32m            points_colmap_path = os.path.join(colmap_basedir, 'triangulated/sparse/model/points3D.bin')[m
+[32m+[m[32m            if os.path.exists(points_colmap_path):[m
+[32m+[m[32m                points_colmap_xyz, points_colmap_rgb, _ = read_points3D_binary(points_colmap_path)[m
+[32m+[m[32m                points_colmap_rgb = points_colmap_rgb / 255.[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                print('No colmap pointcloud')[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            print('Skipping colmap initialization')[m
+                      [m
+         print('initialize from lidar pointcloud')[m
+         pointcloud_path = os.path.join(datadir, 'pointcloud.npz')[m
+[36m@@ -708,4 +718,4 @@[m [mdef generate_dataparser_outputs([m
+             except:[m
+                 print(f'failed to save pointcloud for {k}')[m
+                 continue[m
+[31m-    return result[m
+\ No newline at end of file[m
+[32m+[m[32m    return result[m
+[1mdiff --git a/run_50k_paperlike.sh b/run_50k_paperlike.sh[m
+[1mnew file mode 100755[m
+[1mindex 0000000..babf6dc[m
+[1m--- /dev/null[m
+[1m+++ b/run_50k_paperlike.sh[m
+[36m@@ -0,0 +1,162 @@[m
+[32m+[m[32m#!/usr/bin/env bash[m
+[32m+[m[32mset -euo pipefail[m
+[32m+[m
+[32m+[m[32m# Activate conda[m
+[32m+[m[32msource /home/shencc/miniforge3/etc/profile.d/conda.sh[m
+[32m+[m[32mconda activate street-gaussian[m
+[32m+[m
+[32m+[m[32m# ===== User-configurable paths =====[m
+[32m+[m[32m# Waymo validation set directory containing .tfrecord files[m
+[32m+[m[32mRAW_DIR=/data/shencc/waymo_val_raw[m
+[32m+[m[32m# Output processed data[m
+[32m+[m[32mPROC_DIR=/data/shencc/waymo_processed/validation[m
+[32m+[m[32m# Waymo splits in this repo[m
+[32m+[m[32mSPLIT_DIR=/home/shencc/projects/street_gaussians/script/waymo/waymo_splits[m
+[32m+[m[32m# Tracking file (paper uses tracker results) - set this to your tracker json[m
+[32m+[m[32mTRACK_FILE=/data/shencc/waymo_tracker/val/result.json[m
+[32m+[m
+[32m+[m[32m# Optional: limit to a subset by customizing split file / segment file[m
+[32m+[m[32mSPLIT_FILE="$SPLIT_DIR/val_dynamic.txt"[m
+[32m+[m[32mSEGMENT_FILE="$SPLIT_DIR/segment_list_val.txt"[m
+[32m+[m
+[32m+[m[32m# ===== Dependencies =====[m
+[32m+[m[32m# Core deps (idempotent). You may already have these.[m
+[32m+[m[32mpip install opencv-python==4.7.0.72 imageio imageio-ffmpeg tqdm matplotlib pyyaml roma plyfile bidict scikit-learn open3d[m
+[32m+[m[32mpip install "protobuf==3.20.3"[m
+[32m+[m[32mpip install "numpy==1.26.4"[m
+[32m+[m
+[32m+[m[32m# COLMAP must be installed and on PATH for paper-like initialization[m
+[32m+[m[32mif ! command -v colmap >/dev/null 2>&1; then[m
+[32m+[m[32m  echo "ERROR: colmap not found in PATH. Install COLMAP or disable use_colmap."[m
+[32m+[m[32m  exit 1[m
+[32m+[m[32mfi[m
+[32m+[m
+[32m+[m[32m# ===== Convert Waymo raw -> processed =====[m
+[32m+[m[32mmkdir -p "$RAW_DIR" "$PROC_DIR"[m
+[32m+[m[32mcd /home/shencc/projects/street_gaussians[m
+[32m+[m
+[32m+[m[32mpython script/waymo/waymo_converter.py \[m
+[32m+[m[32m  --root_dir "$RAW_DIR" \[m
+[32m+[m[32m  --save_dir "$PROC_DIR" \[m
+[32m+[m[32m  --split_file "$SPLIT_FILE" \[m
+[32m+[m[32m  --segment_file "$SEGMENT_FILE" \[m
+[32m+[m[32m  --track_file "$TRACK_FILE"[m
+[32m+[m
+[32m+[m[32m# ===== Generate LiDAR depth (for all processed scenes) =====[m
+[32m+[m[32mfor SCENE_DIR in "$PROC_DIR"/*; do[m
+[32m+[m[32m  if [ -d "$SCENE_DIR" ]; then[m
+[32m+[m[32m    python script/waymo/generate_lidar_depth.py --datadir "$SCENE_DIR"[m
+[32m+[m[32m  fi[m
+[32m+[m[32mdone[m
+[32m+[m
+[32m+[m[32m# ===== Config (paper-like defaults) =====[m
+[32m+[m[32mmkdir -p /home/shencc/projects/street_gaussians/configs/custom[m
+[32m+[m[32mcat > /home/shencc/projects/street_gaussians/configs/custom/waymo_val_50k_paperlike.yaml << EOS[m
+[32m+[m[32mtask: waymo_full_exp[m
+[32m+[m[32msource_path: /data/shencc/waymo_processed/validation/000[m
+[32m+[m[32mexp_name: waymo_val_50k_paperlike[m
+[32m+[m
+[32m+[m[32mdata:[m
+[32m+[m[32m  split_test: -1[m
+[32m+[m[32m  split_train: 1[m
+[32m+[m[32m  type: Waymo[m
+[32m+[m[32m  white_background: false[m
+[32m+[m[32m  selected_frames: null[m
+[32m+[m[32m  cameras: [0, 1, 2][m
+[32m+[m[32m  extent: 10[m
+[32m+[m[32m  use_colmap: true[m
+[32m+[m[32m  filter_colmap: true[m
+[32m+[m
+[32m+[m[32mmodel:[m
+[32m+[m[32m  gaussian:[m
+[32m+[m[32m    sh_degree: 1[m
+[32m+[m[32m    fourier_dim: 5[m
+[32m+[m[32m    fourier_scale: 1.[m
+[32m+[m[32m    flip_prob: 0.5[m
+[32m+[m[32m  nsg:[m
+[32m+[m[32m    include_bkgd: true[m
+[32m+[m[32m    include_obj: true[m
+[32m+[m[32m    include_sky: true[m
+[32m+[m[32m    opt_track: true[m
+[32m+[m
+[32m+[m[32mtrain:[m
+[32m+[m[32m  iterations: 50000[m
+[32m+[m[32m  test_iterations: [7000, 30000, 50000][m
+[32m+[m[32m  save_iterations: [50000][m
+[32m+[m[32m  checkpoint_iterations: [50000][m
+[32m+[m
+[32m+[m[32moptim:[m
+[32m+[m[32m  prune_box_interval: 100[m
+[32m+[m[32m  densification_interval: 100[m
+[32m+[m[32m  densify_from_iter: 500[m
+[32m+[m[32m  densify_grad_threshold_bkgd: 0.0006[m
+[32m+[m[32m  densify_grad_abs_bkgd: True[m
+[32m+[m[32m  densify_grad_threshold_obj: 0.0002[m
+[32m+[m[32m  densify_grad_abs_obj: False[m
+[32m+[m[32m  densify_grad_threshold: 0.0002[m
+[32m+[m[32m  densify_until_iter: 25000[m
+[32m+[m[32m  feature_lr: 0.0025[m
+[32m+[m[32m  max_screen_size: 20[m
+[32m+[m[32m  min_opacity: 0.005[m
+[32m+[m[32m  opacity_lr: 0.05[m
+[32m+[m[32m  opacity_reset_interval: 3000[m
+[32m+[m[32m  percent_big_ws: 0.1[m
+[32m+[m[32m  percent_dense: 0.01[m
+[32m+[m[32m  position_lr_delay_mult: 0.01[m
+[32m+[m[32m  position_lr_final: 1.6e-06[m
+[32m+[m[32m  position_lr_init: 0.00016[m
+[32m+[m[32m  position_lr_max_steps: 50000[m
+[32m+[m[32m  rotation_lr: 0.001[m
+[32m+[m[32m  scaling_lr: 0.005[m
+[32m+[m[32m  semantic_lr: 0.01[m
+[32m+[m
+[32m+[m[32m  lambda_dssim: 0.2[m
+[32m+[m[32m  lambda_sky: 0.05[m
+[32m+[m[32m  lambda_sky_scale: [1, 1, 0][m
+[32m+[m[32m  lambda_mask: 0.1[m
+[32m+[m[32m  lambda_reg: 0.1[m
+[32m+[m[32m  lambda_depth_lidar: 0.1[m
+[32m+[m
+[32m+[m[32m  track_position_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_position_lr_init: 0.005[m
+[32m+[m[32m  track_position_lr_final: 5.0e-5[m
+[32m+[m[32m  track_position_max_steps: 30000[m
+[32m+[m
+[32m+[m[32m  track_rotation_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_rotation_lr_init: 0.001[m
+[32m+[m[32m  track_rotation_lr_final: 1.0e-5[m
+[32m+[m[32m  track_rotation_max_steps: 30000[m
+[32m+[m
+[32m+[m[32mrender:[m
+[32m+[m[32m  fps: 24[m
+[32m+[m[32m  concat_cameras: [1, 0, 2][m
+[32m+[m[32mEOS[m
+[32m+[m
+[32m+[m[32m# ===== GPU monitoring =====[m
+[32m+[m[32mLOG_DIR=/home/shencc/projects/street_gaussians/output/waymo_full_exp/waymo_val_50k_paperlike[m
+[32m+[m[32mmkdir -p "$LOG_DIR"[m
+[32m+[m[32mGPU_LOG="$LOG_DIR/gpu_usage.csv"[m
+[32m+[m
+[32m+[m[32mnvidia-smi --query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used --format=csv -l 1 > "$GPU_LOG" &[m
+[32m+[m[32mGPU_PID=$![m
+[32m+[m
+[32m+[m[32mcleanup() {[m
+[32m+[m[32m  if ps -p "$GPU_PID" >/dev/null 2>&1; then[m
+[32m+[m[32m    kill "$GPU_PID" || true[m
+[32m+[m[32m  fi[m
+[32m+[m[32m}[m
+[32m+[m[32mtrap cleanup EXIT[m
+[32m+[m
+[32m+[m[32m# ===== Train =====[m
+[32m+[m[32mpython train.py --config configs/custom/waymo_val_50k_paperlike.yaml[m
+[32m+[m
+[32m+[m[32m# ===== Render =====[m
+[32m+[m[32mpython render.py --config configs/custom/waymo_val_50k_paperlike.yaml mode evaluate[m
+[32m+[m[32mpython render.py --config configs/custom/waymo_val_50k_paperlike.yaml mode trajectory[m
+[32m+[m
+[32m+[m[32m# ===== Metrics =====[m
+[32m+[m[32mpython metrics.py --config configs/custom/waymo_val_50k_paperlike.yaml eval.eval_train True eval.eval_test False[m
+[32m+[m
+[32m+[m[32m# ===== Viewer export =====[m
+[32m+[m[32mpython make_ply.py --config configs/custom/waymo_val_50k_paperlike.yaml viewer.frame_id 0 mode evaluate[m
+[32m+[m
+[1mdiff --git a/run_quick_pipeline.sh b/run_quick_pipeline.sh[m
+[1mnew file mode 100755[m
+[1mindex 0000000..debf201[m
+[1m--- /dev/null[m
+[1m+++ b/run_quick_pipeline.sh[m
+[36m@@ -0,0 +1,159 @@[m
+[32m+[m[32m#!/usr/bin/env bash[m
+[32m+[m[32mset -euo pipefail[m
+[32m+[m
+[32m+[m[32m# Activate conda[m
+[32m+[m[32msource /home/shencc/miniforge3/etc/profile.d/conda.sh[m
+[32m+[m[32mconda activate street-gaussian[m
+[32m+[m
+[32m+[m[32m# Optional: install deps (idempotent)[m
+[32m+[m[32mpip install opencv-python==4.7.0.72 imageio imageio-ffmpeg tqdm matplotlib pyyaml roma plyfile bidict scikit-learn open3d[m
+[32m+[m[32mpip install "protobuf==3.20.3"[m
+[32m+[m[32mpip install "numpy==1.26.4"[m
+[32m+[m
+[32m+[m[32m# Paths[m
+[32m+[m[32mRAW_DIR=/data/shencc/waymo_raw[m
+[32m+[m[32mPROC_DIR=/data/shencc/waymo_processed/training[m
+[32m+[m[32mSPLIT_DIR=/data/shencc/waymo_splits[m
+[32m+[m[32mTFRECORD_SRC=/data/shencc/individual_files_training_segment-10017090168044687777_6380_000_6400_000_with_camera_labels.tfrecord[m
+[32m+[m[32mTFRECORD_DST=$RAW_DIR/segment-10017090168044687777_6380_000_6400_000_with_camera_labels.tfrecord[m
+[32m+[m
+[32m+[m[32m# Prepare directories and splits[m
+[32m+[m[32mmkdir -p "$RAW_DIR" "$PROC_DIR" "$SPLIT_DIR"[m
+[32m+[m[32mif [ ! -e "$TFRECORD_DST" ]; then[m
+[32m+[m[32m  ln -s "$TFRECORD_SRC" "$TFRECORD_DST" || cp "$TFRECORD_SRC" "$TFRECORD_DST"[m
+[32m+[m[32mfi[m
+[32m+[m
+[32m+[m[32mcat > "$SPLIT_DIR/single.txt" << EOS[m
+[32m+[m[32m# scene_id, seg_name, start_timestep, end_timestep, scene_type[m
+[32m+[m[32m0,seg100170,0,-1,dynamic[m
+[32m+[m[32mEOS[m
+[32m+[m
+[32m+[m[32mcat > "$SPLIT_DIR/segment_list_single.txt" << EOS[m
+[32m+[m[32msegment-10017090168044687777_6380_000_6400_000_with_camera_labels[m
+[32m+[m[32mEOS[m
+[32m+[m
+[32m+[m[32m# Convert Waymo raw -> processed[m
+[32m+[m[32mcd /home/shencc/projects/street_gaussians[m
+[32m+[m[32mpython script/waymo/waymo_converter.py \[m
+[32m+[m[32m  --root_dir "$RAW_DIR" \[m
+[32m+[m[32m  --save_dir "$PROC_DIR" \[m
+[32m+[m[32m  --split_file "$SPLIT_DIR/single.txt" \[m
+[32m+[m[32m  --segment_file "$SPLIT_DIR/segment_list_single.txt" \[m
+[32m+[m[32m  --track_file /dev/null[m
+[32m+[m
+[32m+[m[32m# Generate LiDAR depth[m
+[32m+[m[32mpython script/waymo/generate_lidar_depth.py \[m
+[32m+[m[32m  --datadir "$PROC_DIR/000"[m
+[32m+[m
+[32m+[m[32m# Create quick config[m
+[32m+[m[32mmkdir -p /home/shencc/projects/street_gaussians/configs/custom[m
+[32m+[m[32mcat > /home/shencc/projects/street_gaussians/configs/custom/waymo_train_000_quick.yaml << EOS[m
+[32m+[m[32mtask: waymo_full_exp[m
+[32m+[m[32msource_path: /data/shencc/waymo_processed/training/000[m
+[32m+[m[32mexp_name: waymo_train_000_quick[m
+[32m+[m
+[32m+[m[32mdata:[m
+[32m+[m[32m  split_test: -1[m
+[32m+[m[32m  split_train: 1[m
+[32m+[m[32m  type: Waymo[m
+[32m+[m[32m  white_background: false[m
+[32m+[m[32m  selected_frames: null[m
+[32m+[m[32m  cameras: [0, 1, 2][m
+[32m+[m[32m  extent: 10[m
+[32m+[m[32m  use_colmap: false[m
+[32m+[m[32m  filter_colmap: false[m
+[32m+[m
+[32m+[m[32mmodel:[m
+[32m+[m[32m  gaussian:[m
+[32m+[m[32m    sh_degree: 1[m
+[32m+[m[32m    fourier_dim: 5[m
+[32m+[m[32m    fourier_scale: 1.[m
+[32m+[m[32m    flip_prob: 0.5[m
+[32m+[m[32m  nsg:[m
+[32m+[m[32m    include_bkgd: true[m
+[32m+[m[32m    include_obj: true[m
+[32m+[m[32m    include_sky: false[m
+[32m+[m[32m    opt_track: true[m
+[32m+[m
+[32m+[m[32mtrain:[m
+[32m+[m[32m  iterations: 50000[m
+[32m+[m[32m  test_iterations: [7000, 30000, 50000][m
+[32m+[m[32m  save_iterations: [50000][m
+[32m+[m[32m  checkpoint_iterations: [50000][m
+[32m+[m
+[32m+[m[32moptim:[m
+[32m+[m[32m  prune_box_interval: 100[m
+[32m+[m[32m  densification_interval: 100[m
+[32m+[m[32m  densify_from_iter: 500[m
+[32m+[m[32m  densify_grad_threshold_bkgd: 0.0006[m
+[32m+[m[32m  densify_grad_abs_bkgd: True[m
+[32m+[m[32m  densify_grad_threshold_obj: 0.0002[m
+[32m+[m[32m  densify_grad_abs_obj: False[m
+[32m+[m[32m  densify_grad_threshold: 0.0002[m
+[32m+[m[32m  densify_until_iter: 25000[m
+[32m+[m[32m  feature_lr: 0.0025[m
+[32m+[m[32m  max_screen_size: 20[m
+[32m+[m[32m  min_opacity: 0.005[m
+[32m+[m[32m  opacity_lr: 0.05[m
+[32m+[m[32m  opacity_reset_interval: 3000[m
+[32m+[m[32m  percent_big_ws: 0.1[m
+[32m+[m[32m  percent_dense: 0.01[m
+[32m+[m[32m  position_lr_delay_mult: 0.01[m
+[32m+[m[32m  position_lr_final: 1.6e-06[m
+[32m+[m[32m  position_lr_init: 0.00016[m
+[32m+[m[32m  position_lr_max_steps: 50000[m
+[32m+[m[32m  rotation_lr: 0.001[m
+[32m+[m[32m  scaling_lr: 0.005[m
+[32m+[m[32m  semantic_lr: 0.01[m
+[32m+[m
+[32m+[m[32m  lambda_dssim: 0.2[m
+[32m+[m[32m  lambda_sky: 0.0[m
+[32m+[m[32m  lambda_mask: 0.1[m
+[32m+[m[32m  lambda_reg: 0.1[m
+[32m+[m[32m  lambda_depth_lidar: 0.1[m
+[32m+[m
+[32m+[m[32m  track_position_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_position_lr_init: 0.005[m
+[32m+[m[32m  track_position_lr_final: 5.0e-5[m
+[32m+[m[32m  track_position_max_steps: 30000[m
+[32m+[m
+[32m+[m[32m  track_rotation_lr_delay_mult: 0.01[m
+[32m+[m[32m  track_rotation_lr_init: 0.001[m
+[32m+[m[32m  track_rotation_lr_final: 1.0e-5[m
+[32m+[m[32m  track_rotation_max_steps: 30000[m
+[32m+[m
+[32m+[m[32mrender:[m
+[32m+[m[32m  fps: 24[m
+[32m+[m[32m  concat_cameras: [1, 0, 2][m
+[32m+[m[32mEOS[m
+[32m+[m
+[32m+[m[32m# GPU monitoring[m
+[32m+[m[32mLOG_DIR=/home/shencc/projects/street_gaussians/output/waymo_full_exp/waymo_train_000_quick[m
+[32m+[m[32mmkdir -p "$LOG_DIR"[m
+[32m+[m[32mGPU_LOG="$LOG_DIR/gpu_usage.csv"[m
+[32m+[m
+[32m+[m[32mnvidia-smi --query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used --format=csv -l 1 > "$GPU_LOG" &[m
+[32m+[m[32mGPU_PID=$![m
+[32m+[m
+[32m+[m[32mcleanup() {[m
+[32m+[m[32m  if ps -p "$GPU_PID" >/dev/null 2>&1; then[m
+[32m+[m[32m    kill "$GPU_PID" || true[m
+[32m+[m[32m  fi[m
+[32m+[m[32m}[m
+[32m+[m[32mtrap cleanup EXIT[m
+[32m+[m
+[32m+[m[32m# Train[m
+[32m+[m[32mpython train.py --config configs/custom/waymo_train_000_quick.yaml[m
+[32m+[m
+[32m+[m[32m# Render (evaluate)[m
+[32m+[m[32mpython render.py --config configs/custom/waymo_train_000_quick.yaml mode evaluate[m
+[32m+[m
+[32m+[m[32m# Metrics (train)[m
+[32m+[m[32mpython metrics.py --config configs/custom/waymo_train_000_quick.yaml eval.eval_train True eval.eval_test False[m
+[32m+[m
+[32m+[m[32m# Export PLY for viewer[m
+[32m+[m[32mpython make_ply.py --config configs/custom/waymo_train_000_quick.yaml viewer.frame_id 0 mode evaluate[m
+[32m+[m
+[32m+[m[32m# Trajectory video[m
+[32m+[m[32mpython render.py --config configs/custom/waymo_train_000_quick.yaml mode trajectory[m
+[32m+[m
+[1mdiff --git a/submodules/diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h b/submodules/diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h[m
+[1mindex ff2d117..70c57f7 100644[m
+[1m--- a/submodules/diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h[m
+[1m+++ b/submodules/diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h[m
+[36m@@ -11,6 +11,7 @@[m
+ [m
+ #pragma once[m
+ [m
+[32m+[m[32m#include <cstdint>[m
+ #include <iostream>[m
+ #include <vector>[m
+ #include "rasterizer.h"[m
+[1mdiff --git a/submodules/simple-knn/simple_knn.cu b/submodules/simple-knn/simple_knn.cu[m
+[1mindex b923400..6fcd305c 100755[m
+[1m--- a/submodules/simple-knn/simple_knn.cu[m
+[1m+++ b/submodules/simple-knn/simple_knn.cu[m
+[36m@@ -14,6 +14,7 @@[m
+ #include "cuda_runtime.h"[m
+ #include "device_launch_parameters.h"[m
+ #include "simple_knn.h"[m
+[32m+[m[32m#include <cfloat>[m
+ #include <cub/cub.cuh>[m
+ #include <cub/device/device_radix_sort.cuh>[m
+ #include <vector>[m
+[1mdiff --git a/submodules/simple-knn/simple_knn.egg-info/PKG-INFO b/submodules/simple-knn/simple_knn.egg-info/PKG-INFO[m
+[1mindex 8545c5a..5f75033 100644[m
+[1m--- a/submodules/simple-knn/simple_knn.egg-info/PKG-INFO[m
+[1m+++ b/submodules/simple-knn/simple_knn.egg-info/PKG-INFO[m
+[36m@@ -1,3 +1,3 @@[m
+[31m-Metadata-Version: 2.1[m
+[32m+[m[32mMetadata-Version: 2.4[m
+ Name: simple_knn[m
+ Version: 0.0.0[m
+[1mdiff --git a/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/PKG-INFO b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/PKG-INFO[m
+[1mnew file mode 100644[m
+[1mindex 0000000..38a21de[m
+[1m--- /dev/null[m
+[1m+++ b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/PKG-INFO[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32mMetadata-Version: 2.4[m
+[32m+[m[32mName: simple_waymo_open_dataset_reader[m
+[32m+[m[32mVersion: 0.0.0[m
+[32m+[m[32mLicense-File: LICENSE[m
+[32m+[m[32mRequires-Dist: protobuf[m
+[32m+[m[32mDynamic: license-file[m
+[32m+[m[32mDynamic: requires-dist[m
+[1mdiff --git a/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/SOURCES.txt b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/SOURCES.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..5872481[m
+[1m--- /dev/null[m
+[1m+++ b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/SOURCES.txt[m
+[36m@@ -0,0 +1,12 @@[m
+[32m+[m[32mLICENSE[m
+[32m+[m[32mREADME.md[m
+[32m+[m[32msetup.py[m
+[32m+[m[32msimple_waymo_open_dataset_reader/__init__.py[m
+[32m+[m[32msimple_waymo_open_dataset_reader/dataset_pb2.py[m
+[32m+[m[32msimple_waymo_open_dataset_reader/label_pb2.py[m
+[32m+[m[32msimple_waymo_open_dataset_reader/utils.py[m
+[32m+[m[32msimple_waymo_open_dataset_reader.egg-info/PKG-INFO[m
+[32m+[m[32msimple_waymo_open_dataset_reader.egg-info/SOURCES.txt[m
+[32m+[m[32msimple_waymo_open_dataset_reader.egg-info/dependency_links.txt[m
+[32m+[m[32msimple_waymo_open_dataset_reader.egg-info/requires.txt[m
+[32m+[m[32msimple_waymo_open_dataset_reader.egg-info/top_level.txt[m
+\ No newline at end of file[m
+[1mdiff --git a/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/dependency_links.txt b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/dependency_links.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..8b13789[m
+[1m--- /dev/null[m
+[1m+++ b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/dependency_links.txt[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m
+[1mdiff --git a/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/requires.txt b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/requires.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b0c79cc[m
+[1m--- /dev/null[m
+[1m+++ b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/requires.txt[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32mprotobuf[m
+[1mdiff --git a/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/top_level.txt b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/top_level.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..30975e5[m
+[1m--- /dev/null[m
+[1m+++ b/submodules/simple-waymo-open-dataset-reader/simple_waymo_open_dataset_reader.egg-info/top_level.txt[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32msimple_waymo_open_dataset_reader[m
+[1mdiff --git a/waymo_labels_pvps_frames.json b/waymo_labels_pvps_frames.json[m
+[1mnew file mode 100644[m
+[1mindex 0000000..1ca8b27[m
+[1m--- /dev/null[m
+[1m+++ b/waymo_labels_pvps_frames.json[m
+[36m@@ -0,0 +1,14362 @@[m
+[32m+[m[32m{[m
+[32m+[m[32m  "segment": "segment-10017090168044687777_6380_000_6400_000_with_camera_labels",[m
+[32m+[m[32m  "frames": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "frame_index": 23,[m
+[32m+[m[32m      "timestamp_micros": 1550083469645130,[m
+[32m+[m[32m      "laser_labels": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "-b-dwtPYqjzjs3VsxVSoCw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 18.220199987252727,[m
+[32m+[m[32m            "center_y": 29.063312486570794,[m
+[32m+[m[32m            "center_z": 0.5878143349880247,[m
+[32m+[m[32m            "length": 4.26307644839595,[m
+[32m+[m[32m            "width": 1.8256619247198496,[m
+[32m+[m[32m            "height": 1.890000000000006,[m
+[32m+[m[32m            "heading": 1.3156190144451934[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "0QXtLAoMcF26x6k0m-7gVQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 18.801231114375923,[m
+[32m+[m[32m            "center_y": -4.148505790326453,[m
+[32m+[m[32m            "center_z": 2.5397819957991032,[m
+[32m+[m[32m            "length": 6.1364118200823,[m
+[32m+[m[32m            "width": 2.374729258360382,[m
+[32m+[m[32m            "height": 3.199999999999978,[m
+[32m+[m[32m            "heading": -0.2757642386090904[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "2OtubQ7iaA71QGsDdx-1oA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 30.55375658156231,[m
+[32m+[m[32m            "center_y": -6.863753181693028,[m
+[32m+[m[32m            "center_z": 2.2263552827957938,[m
+[32m+[m[32m            "length": 4.623512979082111,[m
+[32m+[m[32m            "width": 1.9918036353434612,[m
+[32m+[m[32m            "height": 2.3301411215232513,[m
+[32m+[m[32m            "heading": -0.2245501065710096[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "3UJet22LcSM39E7W52UwZA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 6.868910192034718,[m
+[32m+[m[32m            "center_y": 11.819950849429006,[m
+[32m+[m[32m            "center_z": 0.9567018922828083,[m
+[32m+[m[32m            "length": 5.781804865186587,[m
+[32m+[m[32m            "width": 2.3907140022405247,[m
+[32m+[m[32m            "height": 2.129999999999999,[m
+[32m+[m[32m            "heading": -1.7404046087491358[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "3k0o8WIX4QmZ4v1ZofDvPw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 15.815071411984945,[m
+[32m+[m[32m            "center_y": 53.04280421436488,[m
+[32m+[m[32m            "center_z": -1.531052736922561,[m
+[32m+[m[32m            "length": 4.7278956363645275,[m
+[32m+[m[32m            "width": 2.252894912311393,[m
+[32m+[m[32m            "height": 1.7000000000000046,[m
+[32m+[m[32m            "heading": -1.4186163951279553[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "6_xi3oao_ua6rryUn1rhYQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 58.389715248784796,[m
+[32m+[m[32m            "center_y": -6.174339287552357,[m
+[32m+[m[32m            "center_z": 4.70276292815754,[m
+[32m+[m[32m            "length": 0.0779287767951225,[m
+[32m+[m[32m            "width": 0.5031531974644249,[m
+[32m+[m[32m            "height": 0.5700000000000021,[m
+[32m+[m[32m            "heading": 2.8931376639460122[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "9knD4nT2n6SxXhRscLB7eg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 20.345991697613727,[m
+[32m+[m[32m            "center_y": 68.6907417457478,[m
+[32m+[m[32m            "center_z": -1.1118074631917807,[m
+[32m+[m[32m            "length": 5.244809118822475,[m
+[32m+[m[32m            "width": 2.1986808998236356,[m
+[32m+[m[32m            "height": 2.160000000000002,[m
+[32m+[m[32m            "heading": -1.7974310257626687[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "AmaIPBb6IIgGRBBGBBhcDQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 8.16429357924585,[m
+[32m+[m[32m            "center_y": -8.713924782725371,[m
+[32m+[m[32m            "center_z": 1.3642608244699659,[m
+[32m+[m[32m            "length": 0.04734118732795244,[m
+[32m+[m[32m            "width": 0.2833374082966847,[m
+[32m+[m[32m            "height": 0.4100000000000037,[m
+[32m+[m[32m            "heading": 1.2981514512573753[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "D9B4pcCN4myeB1ZgLeGXvw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 16.490042419694873,[m
+[32m+[m[32m            "center_y": 22.379158275332884,[m
+[32m+[m[32m            "center_z": 0.8961023247865114,[m
+[32m+[m[32m            "length": 4.727317156361095,[m
+[32m+[m[32m            "width": 2.0793356637348652,[m
+[32m+[m[32m            "height": 1.9600000000000044,[m
+[32m+[m[32m            "heading": 1.3156190144460238[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "FEdJwgdHRQUz2JMISNIy-A",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 22.568109957990828,[m
+[32m+[m[32m            "center_y": -6.762422732886989,[m
+[32m+[m[32m            "center_z": 4.729738728491498,[m
+[32m+[m[32m            "length": 0.12488689177575907,[m
+[32m+[m[32m            "width": 0.6425713751321624,[m
+[32m+[m[32m            "height": 0.7346748736811719,[m
+[32m+[m[32m            "heading": 2.9012283357857758[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "FNaTTaCej5cePQwt0JuphQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -5.071994567596903,[m
+[32m+[m[32m            "center_y": -3.3243815802652534,[m
+[32m+[m[32m            "center_z": 2.978098943257919,[m
+[32m+[m[32m            "length": 0.08729440399303186,[m
+[32m+[m[32m            "width": 0.4410669238735713,[m
+[32m+[m[32m            "height": 0.5833973629897002,[m
+[32m+[m[32m            "heading": -0.34210993013724256[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "JEV58AdPM0XZCYr2lSwkqg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -56.64552233425684,[m
+[32m+[m[32m            "center_y": 14.295453804565113,[m
+[32m+[m[32m            "center_z": 4.295543166191123,[m
+[32m+[m[32m            "length": 3.9019189581461666,[m
+[32m+[m[32m            "width": 1.8290220838645352,[m
+[32m+[m[32m            "height": 2.1038054200820753,[m
+[32m+[m[32m            "heading": 1.208573459958826[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "KI9l4Yu-2tUKHiRNZbqzOw",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -63.05116820571857,[m
+[32m+[m[32m            "center_y": 19.613420168981975,[m
+[32m+[m[32m            "center_z": 4.834228472367613,[m
+[32m+[m[32m            "length": 0.11144393468901359,[m
+[32m+[m[32m            "width": 1.1714576408648256,[m
+[32m+[m[32m            "height": 1.1600000000000037,[m
+[32m+[m[32m            "heading": 0.1716637929503051[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "L9L6oFQVgk-tuvkVjc4S1Q",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 24.50847964323907,[m
+[32m+[m[32m            "center_y": -11.410934716932388,[m
+[32m+[m[32m            "center_z": 2.715163028800589,[m
+[32m+[m[32m            "length": 4.397467497841072,[m
+[32m+[m[32m            "width": 2.2481019244781644,[m
+[32m+[m[32m            "height": 2.1400000000000006,[m
+[32m+[m[32m            "heading": -1.7894147227479809[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Ne2AaddGwrcxS2iKCX3xKw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 7.901524143840561,[m
+[32m+[m[32m            "center_y": -5.684311909531971,[m
+[32m+[m[32m            "center_z": 1.1692428728616733,[m
+[32m+[m[32m            "length": 4.420880681767123,[m
+[32m+[m[32m            "width": 2.2529896584343847,[m
+[32m+[m[32m            "height": 1.6900000000000048,[m
+[32m+[m[32m            "heading": -1.807519451025493[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Usu7yoSAtu2Pg2SveG_tLQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -43.510547414136,[m
+[32m+[m[32m            "center_y": 7.597824398766534,[m
+[32m+[m[32m            "center_z": 4.4691436708540095,[m
+[32m+[m[32m            "length": 0.05460636503329048,[m
+[32m+[m[32m            "width": 0.29585776954972176,[m
+[32m+[m[32m            "height": 0.5033973629896984,[m
+[32m+[m[32m            "heading": -0.7071934418285815[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "VLHM5BIrsyMLQgkWD3I4SQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 16.9601963135633,[m
+[32m+[m[32m            "center_y": 58.82927236107935,[m
+[32m+[m[32m            "center_z": -1.1935071793553789,[m
+[32m+[m[32m            "length": 3.98450175645213,[m
+[32m+[m[32m            "width": 1.9554515050938093,[m
+[32m+[m[32m            "height": 1.8300000000000036,[m
+[32m+[m[32m            "heading": -1.7914753917835828[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "VXLmiwA2Z6GrPBIUP30PnQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 48.98571953319424,[m
+[32m+[m[32m            "center_y": -11.133021442508834,[m
+[32m+[m[32m            "center_z": 2.5080581804000985,[m
+[32m+[m[32m            "length": 3.765112448164135,[m
+[32m+[m[32m            "width": 2.0296903619930533,[m
+[32m+[m[32m            "height": 2.218526776739953,[m
+[32m+[m[32m            "heading": -0.2506641492627688[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Vt1PejQcr1yEpeNRKprfjg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 13.447960623309427,[m
+[32m+[m[32m            "center_y": 39.36035306530539,[m
+[32m+[m[32m            "center_z": -0.8196690454228701,[m
+[32m+[m[32m            "length": 4.236724334506964,[m
+[32m+[m[32m            "width": 2.086263407116765,[m
+[32m+[m[32m            "height": 1.800000000000006,[m
+[32m+[m[32m            "heading": -1.8100541840846736[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "WhOja4fwRe4PltNfL25pjA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 8.412874806863329,[m
+[32m+[m[32m            "center_y": 18.148841560490837,[m
+[32m+[m[32m            "center_z": 0.600595712529298,[m
+[32m+[m[32m            "length": 5.381046114514134,[m
+[32m+[m[32m            "width": 2.1801387535562284,[m
+[32m+[m[32m            "height": 2.1499999999999986,[m
+[32m+[m[32m            "heading": -1.7788026409781843[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "XAkw11i929wDA3IpP_1t6w",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 68.25696516817288,[m
+[32m+[m[32m            "center_y": -19.787865605798288,[m
+[32m+[m[32m            "center_z": 3.3380886099622558,[m
+[32m+[m[32m            "length": 4.52213526897607,[m
+[32m+[m[32m            "width": 2.204337824207978,[m
+[32m+[m[32m            "height": 2.100000000000003,[m
+[32m+[m[32m            "heading": -0.14428408359124578[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "cvbs543yNBeZIh-U-jz5Dg",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -11.500051035564184,[m
+[32m+[m[32m            "center_y": 6.276575451967801,[m
+[32m+[m[32m            "center_z": 3.2367435267599376,[m
+[32m+[m[32m            "length": 0.08569400608234054,[m
+[32m+[m[32m            "width": 0.5144487158524976,[m
+[32m+[m[32m            "height": 0.5946748736811713,[m
+[32m+[m[32m            "heading": -0.2063360633474427[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "grtcrwtqe_l1DgdOsD5p-g",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 22.722139045482436,[m
+[32m+[m[32m            "center_y": -6.74607959180139,[m
+[32m+[m[32m            "center_z": 3.814902771073548,[m
+[32m+[m[32m            "length": 0.12261518058039655,[m
+[32m+[m[32m            "width": 1.0356294782815627,[m
+[32m+[m[32m            "height": 1.0800000000000018,[m
+[32m+[m[32m            "heading": 2.901228335766797[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "jOpvfISSL7zrQtwaklTelQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 26.674662116289937,[m
+[32m+[m[32m            "center_y": 57.13015604382599,[m
+[32m+[m[32m            "center_z": 0.1128442695405738,[m
+[32m+[m[32m            "length": 4.316631024783419,[m
+[32m+[m[32m            "width": 1.9374214192540646,[m
+[32m+[m[32m            "height": 1.8600000000000048,[m
+[32m+[m[32m            "heading": 1.3156190144466802[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "jqbsGK9mNFQAPqfQuzf8Xw",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 16.034217297473788,[m
+[32m+[m[32m            "center_y": 13.18315536587761,[m
+[32m+[m[32m            "center_z": 3.558554607701467,[m
+[32m+[m[32m            "length": 0.06766195629580454,[m
+[32m+[m[32m            "width": 0.4648104430071051,[m
+[32m+[m[32m            "height": 0.5799999999999983,[m
+[32m+[m[32m            "heading": -1.8158314940922784[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "kXMIlNvA1nNSbT0fvYL6uA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 77.90845121936741,[m
+[32m+[m[32m            "center_y": -7.167643555594623,[m
+[32m+[m[32m            "center_z": 4.022463614560138,[m
+[32m+[m[32m            "length": 4.811322824981376,[m
+[32m+[m[32m            "width": 2.2749477620302887,[m
+[32m+[m[32m            "height": 2.1287267123083353,[m
+[32m+[m[32m            "heading": -0.3132092046282704[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "kao_h_Ruzf9soAV-A0cckg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 14.766075190836773,[m
+[32m+[m[32m            "center_y": 14.34410073098661,[m
+[32m+[m[32m            "center_z": 1.2369354677431375,[m
+[32m+[m[32m            "length": 4.375189476598053,[m
+[32m+[m[32m            "width": 2.107914189508908,[m
+[32m+[m[32m            "height": 1.730000000000004,[m
+[32m+[m[32m            "heading": 1.322509667447484[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "lL-DBLZwrre8L5PoiCbCTQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 23.149776796368087,[m
+[32m+[m[32m            "center_y": 2.2288912543644983,[m
+[32m+[m[32m            "center_z": 3.908829751298981,[m
+[32m+[m[32m            "length": 0.062261599077591864,[m
+[32m+[m[32m            "width": 0.4491672372076446,[m
+[32m+[m[32m            "height": 0.480000000000004,[m
+[32m+[m[32m            "heading": 2.8732994053598127[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "p4gyr9XnRlc6j2e3slocsw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 11.384404207148691,[m
+[32m+[m[32m            "center_y": 31.16735298734602,[m
+[32m+[m[32m            "center_z": -0.38024100525797166,[m
+[32m+[m[32m            "length": 4.343030537420131,[m
+[32m+[m[32m            "width": 2.032638362029871,[m
+[32m+[m[32m            "height": 1.8000000000000043,[m
+[32m+[m[32m            "heading": -1.878617333012609[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "tg1mTy0IJeg-CsQsVjHU4Q",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 4.115298518170675,[m
+[32m+[m[32m            "center_y": 9.53114386908419,[m
+[32m+[m[32m            "center_z": 2.6591224627692327,[m
+[32m+[m[32m            "length": 0.07563641472800246,[m
+[32m+[m[32m            "width": 0.7463661673855521,[m
+[32m+[m[32m            "height": 0.7399999999999984,[m
+[32m+[m[32m            "heading": 1.277878629009579[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "yrRSu5rci38yQPw5JbOveQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 27.694872113159136,[m
+[32m+[m[32m            "center_y": 68.03469617424344,[m
+[32m+[m[32m            "center_z": -1.1295837107911666,[m
+[32m+[m[32m            "length": 4.333078045442429,[m
+[32m+[m[32m            "width": 1.824852473674378,[m
+[32m+[m[32m            "height": 1.7500000000000036,[m
+[32m+[m[32m            "heading": 1.3156190144454856[m
+[32m+[m[32m          }[m
+[32m+[m[32m        }[m
+[32m+[m[32m      ],[m
+[32m+[m[32m      "camera_labels": {[m
+[32m+[m[32m        "1": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "12ba81ee-9cee-4134-94ca-df9ed01e0ff1",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1834.7689499999997,[m
+[32m+[m[32m              "center_y": 596.85255,[m
+[32m+[m[32m              "length": 169.89770999999996,[m
+[32m+[m[32m              "width": 169.89770999999996[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "2ab9ff55-a510-435b-a729-884444e67249",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1434.97248,[m
+[32m+[m[32m              "center_y": 627.16887,[m
+[32m+[m[32m              "length": 281.68913999999995,[m
+[32m+[m[32m              "width": 302.53161[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "98fcf17a-d19e-4c3b-bbc0-54ae2d1fcc15",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1160.23083,[m
+[32m+[m[32m              "center_y": 586.1155200000001,[m
+[32m+[m[32m              "length": 31.579500000000053,[m
+[32m+[m[32m              "width": 44.21130000000005[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "ede45407-a479-479b-a27e-5f6a578ee3e9",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1323.18105,[m
+[32m+[m[32m              "center_y": 552.64125,[m
+[32m+[m[32m              "length": 42.31653000000006,[m
+[32m+[m[32m              "width": 31.579500000000053[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ],[m
+[32m+[m[32m        "2": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "0394970e-1a2c-464c-aea0-b44be2cbb911",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 402.95442,[m
+[32m+[m[32m              "center_y": 694.11741,[m
+[32m+[m[32m              "length": 128.84436,[m
+[32m+[m[32m              "width": 68.84330999999997[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "0fa7cd79-b8c5-47f7-90c8-18ba72099416",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 543.79899,[m
+[32m+[m[32m              "center_y": 714.9598800000001,[m
+[32m+[m[32m              "length": 240.00420000000003,[m
+[32m+[m[32m              "width": 130.73913000000005[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "63c84d73-3c52-4c22-8a14-55a797622e69",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 876.0153299999998,[m
+[32m+[m[32m              "center_y": 723.80214,[m
+[32m+[m[32m              "length": 344.21654999999987,[m
+[32m+[m[32m              "width": 178.10838[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "df9d5e7d-c686-4425-a227-d0299043ade8",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 256.5834375,[m
+[32m+[m[32m              "center_y": 849.48855,[m
+[32m+[m[32m              "length": 513.166875,[m
+[32m+[m[32m              "width": 392.2173899999999[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ],[m
+[32m+[m[32m        "4": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "18f73955-e897-4724-bb03-1e0d1eeab8e4",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1512.02646,[m
+[32m+[m[32m              "center_y": 297.47889,[m
+[32m+[m[32m              "length": 56.84310000000005,[m
+[32m+[m[32m              "width": 32.21109000000001[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "4d71ef3a-7ae1-44ee-9fae-261d7cac4197",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1483.60491,[m
+[32m+[m[32m              "center_y": 322.74249,[m
+[32m+[m[32m              "length": 66.9485400000001,[m
+[32m+[m[32m              "width": 42.31653[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "6b01f484-4080-493c-af3d-68d2737d4ea5",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1621.29153,[m
+[32m+[m[32m              "center_y": 313.90022999999997,[m
+[32m+[m[32m              "length": 33.47426999999993,[m
+[32m+[m[32m              "width": 20.84246999999999[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "71a7b264-5d24-41a4-9128-cba1252562ab",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1560.65889,[m
+[32m+[m[32m              "center_y": 346.11132,[m
+[32m+[m[32m              "length": 99.79122000000007,[m
+[32m+[m[32m              "width": 86.52783[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "7b372dbc-c420-42ad-b19f-fdde154daf7b",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1483.60491,[m
+[32m+[m[32m              "center_y": 344.84814000000006,[m
+[32m+[m[32m              "length": 65.68535999999995,[m
+[32m+[m[32m              "width": 58.10628000000003[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "a00646fe-aa45-4541-abbd-d1b1e38c9108",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1632.02856,[m
+[32m+[m[32m              "center_y": 408.63873,[m
+[32m+[m[32m              "length": 92.84373000000005,[m
+[32m+[m[32m              "width": 213.47741999999994[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "f25d7778-3f5d-42a5-ac6f-76123861152a",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1578.975,[m
+[32m+[m[32m              "center_y": 374.53287,[m
+[32m+[m[32m              "length": 102.31757999999991,[m
+[32m+[m[32m              "width": 104.84393999999998[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "f75ae32c-9f2b-4194-9c65-a6a356c56533",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 1785.172335,[m
+[32m+[m[32m              "center_y": 463.58705999999995,[m
+[32m+[m[32m              "length": 269.65533000000005,[m
+[32m+[m[32m              "width": 385.26989999999995[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ],[m
+[32m+[m[32m        "3": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "02e42fff-7a2b-42fe-af0e-81f22a379f05",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 774.32934,[m
+[32m+[m[32m              "center_y": 855.1728600000001,[m
+[32m+[m[32m              "length": 1020.0178499999998,[m
+[32m+[m[32m              "width": 416.2178100000001[m
+[32m+[m[32m            }[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "id": "2176f5d5-e672-4695-8b25-3a62e3985419",[m
+[32m+[m[32m            "type": "TYPE_VEHICLE",[m
+[32m+[m[32m            "type_id": 1,[m
+[32m+[m[32m            "box": {[m
+[32m+[m[32m              "center_x": 224.84604,[m
+[32m+[m[32m              "center_y": 577.2732599999999,[m
+[32m+[m[32m              "length": 347.3745,[m
+[32m+[m[32m              "width": 161.05544999999995[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ],[m
+[32m+[m[32m        "5": [][m
+[32m+[m[32m      }[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "frame_index": 27,[m
+[32m+[m[32m      "timestamp_micros": 1550083470045260,[m
+[32m+[m[32m      "laser_labels": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "-b-dwtPYqjzjs3VsxVSoCw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 16.020306087906192,[m
+[32m+[m[32m            "center_y": 29.076841478929055,[m
+[32m+[m[32m            "center_z": -0.2551532617312091,[m
+[32m+[m[32m            "length": 4.26307644839595,[m
+[32m+[m[32m            "width": 1.8256619247198491,[m
+[32m+[m[32m            "height": 1.890000000000006,[m
+[32m+[m[32m            "heading": 1.318949543513904[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "0QXtLAoMcF26x6k0m-7gVQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 16.71800649605666,[m
+[32m+[m[32m            "center_y": -4.123581408211976,[m
+[32m+[m[32m            "center_z": 1.852545433615262,[m
+[32m+[m[32m            "length": 6.1364118200823,[m
+[32m+[m[32m            "width": 2.3747292583603823,[m
+[32m+[m[32m            "height": 3.199999999999978,[m
+[32m+[m[32m            "heading": -0.2724337095403828[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "2OtubQ7iaA71QGsDdx-1oA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 28.447943878543356,[m
+[32m+[m[32m            "center_y": -6.83572944178195,[m
+[32m+[m[32m            "center_z": 1.0513748512218513,[m
+[32m+[m[32m            "length": 4.623512979082111,[m
+[32m+[m[32m            "width": 1.9918036353434612,[m
+[32m+[m[32m            "height": 2.3301411215232513,[m
+[32m+[m[32m            "heading": -0.22121957750229893[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "3UJet22LcSM39E7W52UwZA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 4.713069341357823,[m
+[32m+[m[32m            "center_y": 11.814404209326312,[m
+[32m+[m[32m            "center_z": 0.6923310756839101,[m
+[32m+[m[32m            "length": 5.781804865186587,[m
+[32m+[m[32m            "width": 2.3907140022405247,[m
+[32m+[m[32m            "height": 2.129999999999999,[m
+[32m+[m[32m            "heading": -1.7370740796804263[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "3k0o8WIX4QmZ4v1ZofDvPw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 13.499465543573706,[m
+[32m+[m[32m            "center_y": 53.04249169698596,[m
+[32m+[m[32m            "center_z": -2.3798001828723727,[m
+[32m+[m[32m            "length": 4.7278956363645275,[m
+[32m+[m[32m            "width": 2.252894912311396,[m
+[32m+[m[32m            "height": 1.7000000000000046,[m
+[32m+[m[32m            "heading": -1.4152858660592456[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "6_xi3oao_ua6rryUn1rhYQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 56.36311176670165,[m
+[32m+[m[32m            "center_y": -6.079927523534934,[m
+[32m+[m[32m            "center_z": 2.4483105554465396,[m
+[32m+[m[32m            "length": 0.0779287767951225,[m
+[32m+[m[32m            "width": 0.5031531974644243,[m
+[32m+[m[32m            "height": 0.5700000000000021,[m
+[32m+[m[32m            "heading": 2.896468193014748[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "9knD4nT2n6SxXhRscLB7eg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 18.02893119579835,[m
+[32m+[m[32m            "center_y": 68.69586258039271,[m
+[32m+[m[32m            "center_z": -2.2424134578551502,[m
+[32m+[m[32m            "length": 5.244809118822475,[m
+[32m+[m[32m            "width": 2.1986808998236347,[m
+[32m+[m[32m            "height": 2.160000000000002,[m
+[32m+[m[32m            "heading": -1.7941004966939662[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "AmaIPBb6IIgGRBBGBBhcDQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 6.068068670291723,[m
+[32m+[m[32m            "center_y": -8.691609005398277,[m
+[32m+[m[32m            "center_z": 1.1613155989975894,[m
+[32m+[m[32m            "length": 0.04734118732795244,[m
+[32m+[m[32m            "width": 0.28333740829668574,[m
+[32m+[m[32m            "height": 0.4100000000000037,[m
+[32m+[m[32m            "heading": 1.301481980326102[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "D9B4pcCN4myeB1ZgLeGXvw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 14.31338542087883,[m
+[32m+[m[32m            "center_y": 22.393339669522902,[m
+[32m+[m[32m            "center_z": 0.1516424185165306,[m
+[32m+[m[32m            "length": 4.727317156361095,[m
+[32m+[m[32m            "width": 2.079335663734867,[m
+[32m+[m[32m            "height": 1.9600000000000044,[m
+[32m+[m[32m            "heading": 1.318949543514731[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "FEdJwgdHRQUz2JMISNIy-A",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 20.57879123275643,[m
+[32m+[m[32m            "center_y": -6.722821058870977,[m
+[32m+[m[32m            "center_z": 3.9014982295709615,[m
+[32m+[m[32m            "length": 0.12488689177575907,[m
+[32m+[m[32m            "width": 0.6425713751321621,[m
+[32m+[m[32m            "height": 0.7346748736811719,[m
+[32m+[m[32m            "heading": 2.90455886485449[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "FNaTTaCej5cePQwt0JuphQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -7.10180140813668,[m
+[32m+[m[32m            "center_y": -3.322023457963951,[m
+[32m+[m[32m            "center_z": 3.3214493635096005,[m
+[32m+[m[32m            "length": 0.08729440399303186,[m
+[32m+[m[32m            "width": 0.4410669238735711,[m
+[32m+[m[32m            "height": 0.5833973629897002,[m
+[32m+[m[32m            "heading": -0.33877940106853455[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "JEV58AdPM0XZCYr2lSwkqg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -58.59921097730239,[m
+[32m+[m[32m            "center_y": 14.275011268626258,[m
+[32m+[m[32m            "center_z": 6.8089824657972144,[m
+[32m+[m[32m            "length": 3.9019189581461666,[m
+[32m+[m[32m            "width": 1.8290220838645421,[m
+[32m+[m[32m            "height": 2.1038054200820753,[m
+[32m+[m[32m            "heading": 1.2119039890275358[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "L9L6oFQVgk-tuvkVjc4S1Q",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 22.44551733709477,[m
+[32m+[m[32m            "center_y": -11.369820292387885,[m
+[32m+[m[32m            "center_z": 1.8532158893229962,[m
+[32m+[m[32m            "length": 4.397467497841072,[m
+[32m+[m[32m            "width": 2.248101924478163,[m
+[32m+[m[32m            "height": 2.1400000000000006,[m
+[32m+[m[32m            "heading": -1.7860841936792724[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Ne2AaddGwrcxS2iKCX3xKw",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 5.777066618399658,[m
+[32m+[m[32m            "center_y": -5.666466163800578,[m
+[32m+[m[32m            "center_z": 0.9650588913468141,[m
+[32m+[m[32m            "length": 4.420880681767123,[m
+[32m+[m[32m            "width": 2.2529896584343856,[m
+[32m+[m[32m            "height": 1.6900000000000048,[m
+[32m+[m[32m            "heading": -1.8041889219567842[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Usu7yoSAtu2Pg2SveG_tLQ",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -45.46387310030377,[m
+[32m+[m[32m            "center_y": 7.587991282620351,[m
+[32m+[m[32m            "center_z": 6.430054403210363,[m
+[32m+[m[32m            "length": 0.05460636503329048,[m
+[32m+[m[32m            "width": 0.2958577695497269,[m
+[32m+[m[32m            "height": 0.5033973629896984,[m
+[32m+[m[32m            "heading": -0.7038629127599125[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "VLHM5BIrsyMLQgkWD3I4SQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 14.652514205691432,[m
+[32m+[m[32m            "center_y": 58.83155623401035,[m
+[32m+[m[32m            "center_z": -2.1235342555266925,[m
+[32m+[m[32m            "length": 3.98450175645213,[m
+[32m+[m[32m            "width": 1.95545150509381,[m
+[32m+[m[32m            "height": 1.8300000000000036,[m
+[32m+[m[32m            "heading": -1.788144862714879[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "VXLmiwA2Z6GrPBIUP30PnQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 46.87573298230768,[m
+[32m+[m[32m            "center_y": -11.083370348551398,[m
+[32m+[m[32m            "center_z": 0.552926952275584,[m
+[32m+[m[32m            "length": 3.765112448164135,[m
+[32m+[m[32m            "width": 2.029690361993053,[m
+[32m+[m[32m            "height": 2.218526776739953,[m
+[32m+[m[32m            "heading": -0.24733362019406036[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "Vt1PejQcr1yEpeNRKprfjg",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 11.175725779407003,[m
+[32m+[m[32m            "center_y": 39.36190119112507,[m
+[32m+[m[32m            "center_z": -1.4655526844315432,[m
+[32m+[m[32m            "length": 4.236724334506964,[m
+[32m+[m[32m            "width": 2.086263407116766,[m
+[32m+[m[32m            "height": 1.8000000000000043,[m
+[32m+[m[32m            "heading": -1.8067236550159669[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "WhOja4fwRe4PltNfL25pjA",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 6.235295744478435,[m
+[32m+[m[32m            "center_y": 18.155438190107816,[m
+[32m+[m[32m            "center_z": 0.23042299148954726,[m
+[32m+[m[32m            "length": 5.381046114514134,[m
+[32m+[m[32m            "width": 2.1801387535562275,[m
+[32m+[m[32m            "height": 2.149999999999995,[m
+[32m+[m[32m            "heading": -1.775472111909475[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "XAkw11i929wDA3IpP_1t6w",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 66.17668869037175,[m
+[32m+[m[32m            "center_y": -19.719815762640792,[m
+[32m+[m[32m            "center_z": 0.578199806384248,[m
+[32m+[m[32m            "length": 4.52213526897607,[m
+[32m+[m[32m            "width": 2.2043378242079807,[m
+[32m+[m[32m            "height": 2.100000000000003,[m
+[32m+[m[32m            "heading": -0.14095355452254577[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "cvbs543yNBeZIh-U-jz5Dg",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": -13.528201915775298,[m
+[32m+[m[32m            "center_y": 6.281274004491934,[m
+[32m+[m[32m            "center_z": 3.8278260403874356,[m
+[32m+[m[32m            "length": 0.08569400608234054,[m
+[32m+[m[32m            "width": 0.5144487158524969,[m
+[32m+[m[32m            "height": 0.5946748736811713,[m
+[32m+[m[32m            "heading": -0.20300553427873114[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "fChrJeYo77HCXkVWZuH0jw",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 66.23391225152682,[m
+[32m+[m[32m            "center_y": -6.504847081536354,[m
+[32m+[m[32m            "center_z": 2.620788677043606,[m
+[32m+[m[32m            "length": 0.0874896922704684,[m
+[32m+[m[32m            "width": 0.6511430105120953,[m
+[32m+[m[32m            "height": 0.690000000000003,[m
+[32m+[m[32m            "heading": 0.9269934274894105[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "grtcrwtqe_l1DgdOsD5p-g",[m
+[32m+[m[32m          "type": "TYPE_SIGN",[m
+[32m+[m[32m          "type_id": 3,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 20.692715736760192,[m
+[32m+[m[32m            "center_y": -6.711829402152944,[m
+[32m+[m[32m            "center_z": 2.980470822048005,[m
+[32m+[m[32m            "length": 0.12261518058039655,[m
+[32m+[m[32m            "width": 1.035629478281563,[m
+[32m+[m[32m            "height": 1.0800000000000018,[m
+[32m+[m[32m            "heading": 2.904558864835508[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "id": "jOpvfISSL7zrQtwaklTelQ",[m
+[32m+[m[32m          "type": "TYPE_VEHICLE",[m
+[32m+[m[32m          "type_id": 1,[m
+[32m+[m[32m          "box": {[m
+[32m+[m[32m            "center_x": 24.416367015494643,[m
+[32m+[m[32m            "center_y": 57.14681302541976,[m
+[32m+[m[32m            "center_z": -1.2329081670172855,[m
+[32m+[m[32m            "length": 4.316631024783419,[m
+[32m+[m[32m            "width": 1.9374214192540695,[m
+[32m+[m[32m            "height": 1.8600000000000048,[m
+[32m+[m[32m            "heading": 1.3189495435153855[m
+[32m+[m[32m          }[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m      

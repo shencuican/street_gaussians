@@ -441,11 +441,13 @@ def generate_dataparser_outputs(
     #     x = x.astype(np.uint8) * 255
     #     cv2.imwrite(f'obj_bounds/{i}.png', x)
     
-    # run colmap
+    # run colmap (optional)
+    use_colmap = cfg.data.get('use_colmap', True)
     colmap_basedir = os.path.join(f'{cfg.model_path}/colmap')
-    if not os.path.exists(os.path.join(colmap_basedir, 'triangulated/sparse/model')):
-        from script.waymo.colmap_waymo_full import run_colmap_waymo
-        run_colmap_waymo(result)
+    if use_colmap:
+        if not os.path.exists(os.path.join(colmap_basedir, 'triangulated/sparse/model')):
+            from script.waymo.colmap_waymo_full import run_colmap_waymo
+            run_colmap_waymo(result)
     
     if build_pointcloud:
         print('build point cloud')
@@ -461,9 +463,17 @@ def generate_dataparser_outputs(
             points_rgb_dict[f'obj_{track_id:03d}'] = []
 
         print('initialize from sfm pointcloud')
-        points_colmap_path = os.path.join(colmap_basedir, 'triangulated/sparse/model/points3D.bin')
-        points_colmap_xyz, points_colmap_rgb, points_colmap_error = read_points3D_binary(points_colmap_path)
-        points_colmap_rgb = points_colmap_rgb / 255.
+        points_colmap_xyz = np.zeros((0, 3), dtype=np.float32)
+        points_colmap_rgb = np.zeros((0, 3), dtype=np.float32)
+        if use_colmap:
+            points_colmap_path = os.path.join(colmap_basedir, 'triangulated/sparse/model/points3D.bin')
+            if os.path.exists(points_colmap_path):
+                points_colmap_xyz, points_colmap_rgb, _ = read_points3D_binary(points_colmap_path)
+                points_colmap_rgb = points_colmap_rgb / 255.
+            else:
+                print('No colmap pointcloud')
+        else:
+            print('Skipping colmap initialization')
                      
         print('initialize from lidar pointcloud')
         pointcloud_path = os.path.join(datadir, 'pointcloud.npz')
